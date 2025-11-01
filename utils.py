@@ -17,7 +17,7 @@ import torch.distributed as dist
 import math
 import torch.nn as nn
 import torch.nn.init as init
-from data_loader_helper import get_abs_path
+from datasets import get_abs_path
 import logging
 from collections import OrderedDict
 import torch.nn.functional as F
@@ -266,7 +266,7 @@ def batch_index_select(x, idx):
         return out
     else:
         raise NotImplementedError
-
+    
 def free(torch_tensor):
     return torch_tensor.cpu().detach().numpy()
 def aggregate_dicts(dict, key, val):
@@ -384,10 +384,9 @@ def init_params(net):
 
 # _, term_width = os.popen('stty size', 'r').read().split()
 # term_width = int(term_width)
-# term_width = os.get_terminal_size().columns
 term_width = 60
 
-TOTAL_BAR_LENGTH = 40.
+TOTAL_BAR_LENGTH = 65.
 last_time = time.time()
 begin_time = last_time
 def progress_bar(current, total, msg=None):
@@ -398,15 +397,13 @@ def progress_bar(current, total, msg=None):
     cur_len = int(TOTAL_BAR_LENGTH*current/total)
     rest_len = int(TOTAL_BAR_LENGTH - cur_len) - 1
 
-    # sys.stdout.write(' [')
-    # for i in range(cur_len):
-    #     sys.stdout.write('=')
-    # sys.stdout.write('>')
-    # for i in range(rest_len):
-    #     sys.stdout.write('..')
-    # sys.stdout.write(']')
-
-    bar = ' [' + '=' * cur_len + '>' + '.' * rest_len + ']'
+    sys.stdout.write(' [')
+    for i in range(cur_len):
+        sys.stdout.write('=')
+    sys.stdout.write('>')
+    for i in range(rest_len):
+        sys.stdout.write('..')
+    sys.stdout.write(']')
 
     cur_time = time.time()
     step_time = cur_time - last_time
@@ -420,27 +417,20 @@ def progress_bar(current, total, msg=None):
         L.append(' | ' + msg)
 
     msg = ''.join(L)
-    
-    suffix = msg.ljust(term_width - len(bar) - 3)
-    sys.stdout.write('\r' + bar + suffix)
-    if current == total - 1:
+    sys.stdout.write(msg)
+    for i in range(term_width-int(TOTAL_BAR_LENGTH)-len(msg)-3):
+        sys.stdout.write(' ')
+
+    # Go back to the center of the bar.
+    for i in range(term_width-int(TOTAL_BAR_LENGTH/2)+2):
+        sys.stdout.write('\b')
+    sys.stdout.write(' %d/%d ' % (current+1, total))
+
+    if current < total-1:
+        sys.stdout.write('\r')
+    else:
         sys.stdout.write('\n')
     sys.stdout.flush()
-
-    # sys.stdout.write(msg)
-    # for i in range(term_width-int(TOTAL_BAR_LENGTH)-len(msg)-3):
-    #     sys.stdout.write(' ')
-
-    # # Go back to the center of the bar.
-    # for i in range(term_width-int(TOTAL_BAR_LENGTH/2)+2):
-    #     sys.stdout.write('\b')
-    # sys.stdout.write(' %d/%d ' % (current+1, total))
-
-    # if current < total-1:
-    #     sys.stdout.write('\r')
-    # else:
-    #     sys.stdout.write('\n')
-    # sys.stdout.flush()
 
 def format_time(seconds):
     days = int(seconds / 3600/24)

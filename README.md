@@ -1,114 +1,146 @@
 # Lightweight Remote Sensing Scene Classification on Edge Devices via Knowledge Distillation and Early-exit
 
-**Read this in other languages: [English](README.md), [中文](README_zh.md).**
+**GFNet-Dynn** is a hybrid deep learning model that combines the advantages of the [GFNet](https://github.com/raoyongming/GFNet) and [Dynn](https://github.com/networkslab/dynn) architectures. This project aims to significantly enhance the inference efficiency of deep neural networks on edge devices while maintaining high accuracy by introducing a **dynamic exit mechanism** (i.e., "early exit mechanism").
 
-GFNet-Dynn is a hybrid deep learning model that combines the advantages of GFNet and Dynn architectures. This repository contains the codebase for training, evaluating, and deploying GFNet-Dynn models. The project aims to improve the efficiency and accuracy of deep neural networks by leveraging a dynamic early-exit mechanism.
+## 🚀 Quick Start
 
-## Installation Guide
-
-### 1. **Clone the Repository**
+### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/GFNet-Dynn.git
+bashgit clone https://github.com/KaHimm/GFNet-Dynn.git
 cd GFNet-Dynn
 ```
 
-### 2. **Install Dependencies**
+### 2. Install Dependencies
 
-Refer to the dependency installation guides from [GFNet](https://github.com/raoyongming/GFNet) and [Dynn](https://github.com/networkslab/dynn).
+Please refer to the official guides of GFNet and Dynn to install the necessary Python dependencies.
 
-### 3. **Load Data**
+### 3. Prepare the Dataset
 
-Place the datasets in the `data/` folder at the same level as this project. For specific data loading instructions, refer to the `load_dataset` function in `main_dynn.py`.
-Supported datasets include but are not limited to:
-- AID
-- NaSC
-- NWPU
-- PatternNet
-- UCM
+Place the supported datasets in the `data/` folder at the project root directory.
 
-Ensure that the dataset paths are correctly configured so the code can load the data properly. (You can check dataset configurations in `data_loader_help.py`.)
+**Supported Datasets**:
 
-### 4. **Configure Checkpoints**
+- `AID`
+- `NWPU`
+- `PatternNet`
+- `UCM`
+- `NaSC`
 
-Use the `--resume` argument to choose whether to load a model checkpoint. You can configure the `checkpoint_path` in the `main` function of `main_dynn.py` to resume training or perform model evaluation.
+> 📁 **Note**: The paths and structures of the datasets are defined in `data_loader_help.py` and `dataset_config.py`. Please ensure they match the actual paths.
 
-## Usage
+### 4. Model Training
 
-### Model Training
-
-To train the GFNet-Dynn model, you can use the provided Bash script:
+Use the provided example script for training:
 
 ```bash
-./main_dynn.bash
+bash
+
+./example_usage.sh
 ```
 
-Alternatively, refer to the command examples in `main_dynn.txt` to learn how to configure different parameters for training.
-
-### Model Evaluation
-
-For evaluating pre-trained models, configure the `--eval` and `--resume` parameters, and specify the model checkpoint path `checkpoint_path` to run the evaluation function.
-
-### Experiment Tracking
-
-This project uses MLflow for experiment tracking. Start the MLflow server to track experiments:
+Or run it manually:
 
 ```bash
-mlflow ui
+bashpython main_dynn.py \
+    --data-set NWPU \
+    --data-path /path/to/NWPU \
+    --checkpoint-path /path/to/pretrained/checkpoint.pth \
+    --batch 64 \
+    --num_epoch 200 \
+    --ce_ic_tradeoff 0.75 \
+    --lr 0.001 \
+    --input-size 256
 ```
 
-Then, access `http://localhost:5000` in your browser and navigate to the `mlruns/` directory to view and compare different runs.
+### 5. Model Evaluation
 
-## Configuration Details
+Evaluate a pre-trained model using the `--eval` parameter:
 
-The main configuration parameters of GFNet-Dynn can be found in `main_dynn.py`. Below are some key parameters:
+```bash
+bashpython main_dynn.py \
+    --data-set NWPU \
+    --data-path /path/to/NWPU \
+    --checkpoint-path /path/to/pretrained/checkpoint.pth \
+    --eval \
+    --input-size 256
+```
 
-- `--data_set`: Specifies the dataset name (e.g., AID, NaSC, NWPU).
-- `--img_size`: Sets the input image size.
-- `--num_classes`: Specifies the number of classes for the classification task.
-- `--ce_ic_tradeoff`: Controls the trade-off coefficient between classification loss and intermediate classifier loss.
-- `--max_warmup_epoch`: Sets the maximum number of training epochs for the dynamic warmup phase.
-- `--resume`: Loads a pre-trained model or resumes training.
-- `--eval`: Enables evaluation mode for validation set testing only.
+------
 
-For more detailed configuration information, refer to the `argparse` configuration section in `main_dynn.py`.
+## ⚙️ Main Parameter Descriptions
 
-## Model Training Workflow
+| Parameter           | Description                                                  | Default Value         |
+| :------------------ | :----------------------------------------------------------- | :-------------------- |
+| `--data-set`        | Dataset name (`UCM`, `NaSC`, `NWPU`, `PatternNet`, `AID`)    | Required              |
+| `--data-path`       | Root path of the dataset                                     | Required              |
+| `--checkpoint-path` | Checkpoint save path (for training) or model path (for evaluation) | `None`                |
+| `--input-size`      | Input image size                                             | Dataset default value |
+| `--batch`           | Batch size                                                   | `64`                  |
+| `--num_epoch`       | Number of training epochs                                    | `100`                 |
+| `--ce_ic_tradeoff`  | Trade-off coefficient between classification error and inference cost | `0.75`                |
+| `--split-ratio`     | Training/validation set split ratio (valid for random split) | `0.8`                 |
 
-The training workflow of GFNet-Dynn is mainly divided into two phases:
+------
 
-1. **Dynamic Warmup Phase**:
-   - In this phase, the model gradually trains each intermediate classifier (exit) and freezes the best-performing classifier based on validation accuracy.
-   - Once an exit classifier fails to improve on the validation set for `patience` consecutive epochs, it will be frozen, and its optimal weights will be saved.
-   - If all exit classifiers converge, training will be terminated early.
+## 🏗️ Model Training Process
 
-2. **Full Model Training Phase**:
-   - After the warmup phase, the model enters the full model training phase.
-   - The weights of all exit classifiers will be fixed, and only the backbone network will be trained to further improve overall performance.
-   - The final model will include multiple exit classifiers, allowing dynamic early-exit decisions during inference based on specific needs.
+GFNet-Dynn adopts a two-stage training strategy to optimize early exit performance:
 
-## Checkpoint File Description
+### Stage One: Dynamic Warmup
 
-GFNet-Dynn saves model checkpoint files during training for resuming training or performing model evaluation.
+- Train each intermediate classifier (exit) one by one.
+- Freeze the exit classifier with the best performance based on the validation set accuracy.
+- If an exit has not improved for `patience` consecutive rounds, save its optimal weights and freeze it.
+- If all exits have converged, terminate this stage early.
 
-All checkpoint files are saved by default in the `checkpoint/` directory, which contains multiple subfolders for organizing model files from different phases and configurations:
+### Stage Two: Full Model Training
 
-- **`best/`**  
-  Stores the best-performing model files on the validation set. This is the final recommended model weight after training (added **manually**).
+- Train the backbone network and intermediate classifiers (exits) together to further enhance overall performance.
+- The final model supports dynamically selecting the exit point during inference based on confidence.
 
-- **`_warmup/`**  
-  Stores model checkpoints from the dynamic warmup phase, used for training and freezing intermediate classifiers (exit).
+------
 
-- **`checkpoint_{dataset}_{ce_ic_tradeoff}_confEE/`**  
-  Stores model files trained under different dataset (`{dataset}`) and loss trade-off coefficient (`{ce_ic_tradeoff}`) configurations, allowing for differentiation between experimental conditions.
+## 📁 Checkpoint File Management
 
-For more details on the checkpoint file saving paths and naming conventions, refer to the relevant implementation in `our_train_helper.py`.
+Model checkpoints during training are saved by default in the `checkpoint/` directory.
 
-## References
+### Directory Structure
 
-This project draws inspiration from the following repositories:
+```
+├── checkpoint/
+	    └── checkpoint_{dataset}_{ce_ic_tradeoff}_confEE/       # Training results for different experimental configurations
+├── checkpoint_warmup/                                          # Checkpoints from the warmup stage
+└── checkpoint_result/                                          # Final models manually selected and saved
+```
+
+------
+
+## 🛠️ Dataset Configuration
+
+All dataset configuration information is uniformly managed in the `dataset_config.py` file.
+
+```python
+pythonDATASET_CONFIG = {
+    'UCM': {
+        'num_classes': 21,
+        'default_input_size': 256,
+        'train_folder': 'train',
+        'val_folder': 'val',
+        'use_random_split': False,
+        'default_data_path': './data/UCM'
+    },
+    # ... Other datasets
+}
+```
+
+> 📌 **Tip**: To add a new dataset or modify an existing configuration, please edit this file.
+
+## 📜 References
+
+This project draws on content from the following repositories:
 
 - [GFNet](https://github.com/raoyongming/GFNet)
 - [Dynn](https://github.com/networkslab/dynn)
 
-Please consult these repositories for more detailed information on the underlying architecture and methods.
+Please refer to these repositories for more detailed information about the underlying architectures and methods.
