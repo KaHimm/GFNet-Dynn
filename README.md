@@ -6,11 +6,6 @@
 
 ### 1. Clone the Repository
 
-```bash
-bashgit clone https://github.com/KaHimm/GFNet-Dynn.git
-cd GFNet-Dynn
-```
-
 ### 2. Install Dependencies
 
 Please refer to the official guides of GFNet and Dynn to install the necessary Python dependencies.
